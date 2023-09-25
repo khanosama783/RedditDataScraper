@@ -1,19 +1,38 @@
-const playwright = require("playwright");
-const logger = require("./logger");
-const queue = require("./sqs");
-const isLambda = require("is-lambda");
-const chromium = require("@sparticuz/chromium");
+/**
+ * Import necessary Node.js modules and external libraries.
+ */
+const playwright = require("playwright"); // Playwright for browser automation.
+const logger = require("./logger"); // Custom logger module.
+const queue = require("./sqs"); // A module for handling a queue.
+const isLambda = require("is-lambda"); // A utility to check if running in an AWS Lambda environment.
+const chromium = require("@sparticuz/chromium"); // Chromium-related utilities.
 
+/**
+ * Retrieve the connection URL from environment variables.
+ */
 const connectionUrl = process.env.CONNECTION_URL;
 
+/**
+ * Create an empty object to store all post data.
+ */
 let allPosts = {};
 
+/**
+ * Define a function to add interceptors to web pages.
+ * Intercept specific resource types (images, fonts, stylesheets, scripts, media) and abort them.
+ * @param {Page} page - Playwright Page object.
+ */
 const addPageInterceptors = async (page) => {
   await page.route(/(image|font|stylesheet|script|media)/, (route) => {
     route.abort();
   });
 };
 
+/**
+ * Define a function to get HTML element attributes.
+ * @param {ElementHandle} handle - Playwright ElementHandle object.
+ * @returns {Promise<Object>} - Promise resolving to an object containing attribute name-value pairs.
+ */
 const getAttributes = async (handle) =>
   handle.evaluate((element) => {
     return Array.from(element.attributes).reduce((attributeMap, attr) => {
@@ -22,6 +41,10 @@ const getAttributes = async (handle) =>
     }, {});
   });
 
+/**
+ * Define a function to create a new browser instance.
+ * @returns {Promise<Browser>} - Promise resolving to a Playwright Browser object.
+ */
 const newBrowser = async () => {
   const launchOptions = {};
 
@@ -38,6 +61,11 @@ const newBrowser = async () => {
   return playwright.chromium.launch(launchOptions);
 };
 
+/**
+ * Define a function to fetch data for multiple posts concurrently.
+ * @param {Array} posts - Array of post objects.
+ * @returns {Promise<Array>} - Promise resolving to an array of results from concurrent data fetching.
+ */
 async function getDataForPostsConcurrently(posts) {
   logger.info("getting data for posts concurrently");
 
@@ -78,6 +106,11 @@ async function getDataForPostsConcurrently(posts) {
   return results;
 }
 
+/**
+ * Define a function to fetch data for individual posts.
+ * @param {Array} posts - Array of post objects.
+ * @param {Page} page - Playwright Page object.
+ */
 async function getDataForPosts(posts, page) {
   logger.info("getting data for posts");
   let data = [];
@@ -90,6 +123,11 @@ async function getDataForPosts(posts, page) {
   await queue.publish(data.map((post) => ({ ...post, scrapedAt: nowStr })));
 }
 
+/**
+ * Define a function to parse comments from an ElementHandle representing a comment section.
+ * @param {ElementHandle} elementHandle - Playwright ElementHandle object.
+ * @returns {Promise<Array>} - Promise resolving to an array of parsed comment objects.
+ */
 async function parseComment(elementHandle) {
   const things = await elementHandle.$$("> .sitetable > .thing");
   const comments = [];
@@ -131,6 +169,13 @@ async function parseComment(elementHandle) {
   return comments;
 }
 
+/**
+ * Define a function to fetch detailed data for a post.
+ * @param {Object} options - Options object containing page and post information.
+ * @param {Page} options.page - Playwright Page object.
+ * @param {Object} options.post - Post object.
+ * @returns {Promise<Object>} - Promise resolving to detailed post data.
+ */
 async function getPostData({ page, post }) {
   logger.info("getting details for post", { post: post.id });
 
@@ -186,6 +231,11 @@ async function getPostData({ page, post }) {
   };
 }
 
+/**
+ * Define a function to retrieve posts from a web page.
+ * @param {Page} page - Playwright Page object.
+ * @returns {Promise<Array>} - Promise resolving to an array of post objects.
+ */
 async function getPostsOnPage(page) {
   logger.info("getting posts for page");
 
@@ -204,6 +254,9 @@ async function getPostsOnPage(page) {
   });
 }
 
+/**
+ * Define the main function for the script.
+ */
 async function main() {
   logger.info("launching browser...");
   const browser = await newBrowser();
@@ -254,10 +307,19 @@ async function main() {
   logger.info(`got ${posts.length} posts`);
 }
 
+/**
+ * Check if this script is being run as the main module, and if so, execute the main function.
+ */
 if (require.main === module) {
   main();
 }
 
+/**
+ * Export an AWS Lambda-compatible handler function.
+ * @param {Object} event - AWS Lambda event object.
+ * @param {Object} context - AWS Lambda context object.
+ * @returns {Promise<Object>} - Promise resolving to a success or error response object.
+ */
 exports.handler = async function (event, context) {
   try {
     await main();
@@ -269,6 +331,11 @@ exports.handler = async function (event, context) {
   }
 };
 
+/**
+ * Define a utility function to calculate the size of a web page in bytes.
+ * @param {Page} page - Playwright Page object.
+ * @returns {Promise<number>} - Promise resolving to the page size in bytes.
+ */
 const bytesForPage = async (page) => {
   const content = await page.content();
   return Buffer.from(content, "utf8").length;
