@@ -1,0 +1,18 @@
+{
+  "name": "redditapi",
+  "version": "1.0.0",
+  "description": "Optimize reddit api ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.418.0",
+    "@sparticuz/chromium": "^117.0.0",
+    "is-lambda": "^1.0.1",
+    "playwright": "^1.38.1",
+    "winston": "^3.10.0"
+  }
+}
